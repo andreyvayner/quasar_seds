@@ -62,12 +62,12 @@ from astropy.io import ascii, fits
 # z = 2.4461 
 #spec_source = "sdss"  # options: "sdss", "desi"
 
-# src_name = 'J1652+1728'
-# ipac_file = 'J1652+1728.tbl'
-# ra_str ='16:52:02.61 '
-# dec_str = '17:28:52.3'
-# z = 2.94
-# spec_source = "sdss"  # options: "sdss", "desi"
+src_name = 'J1652+1728'
+ipac_file = 'J1652+1728.tbl'
+ra_str ='16:52:02.61 '
+dec_str = '17:28:52.3'
+z = 2.94
+spec_source = "sdss"  # options: "sdss", "desi"
 
 # src_name = '3C298'
 # ipac_file = '3C298.tbl'
@@ -76,13 +76,28 @@ from astropy.io import ascii, fits
 # z = 1.439
 # spec_source = "sdss"  # options: "sdss", "desi"
 
-src_name = 'J0052+0101'
-ipac_file = 'J0052+0101.tbl'
-ra_str ='00:52:02.4056270064' #right ascension
-dec_str = '+01:01:29.270570160' #declination
-z = 2.27
-spec_source = "desi"  # options: "sdss", "desi"
+# src_name = 'J0052+0101'
+# ipac_file = 'J0052+0101.tbl'
+# ra_str ='00:52:02.4056270064' #right ascension
+# dec_str = '+01:01:29.270570160' #declination
+# z = 2.27
+# spec_source = "desi"  # options: "sdss", "desi"
 
+
+# src_name = 'J140638+01025'
+# ipac_file = 'J140638+01025.tbl'
+# ra_str ='14:06:38.19' #right ascension
+# dec_str = '+01:02:54.6' #declination
+# z = 0.236
+# spec_source = "sdss"  # options: "sdss", "desi"
+
+
+# src_name = 'J12510+2603'
+# ipac_file = 'J12510+2603.tbl'
+# ra_str ='12:53:27.5062875612' #right ascension
+# dec_str = '+26:47:47.610645913' #declination
+# z = 0.483559
+# spec_source = "desi"  # options: "sdss", "desi"
 
 
 
@@ -237,6 +252,12 @@ else:
 # Query and download optical spectrum (SDSS or DESI)
 # ------------------------------------------------------------
 spec_source = spec_source.lower().strip()
+has_spectrum = False
+wav_A = np.array([], dtype=float)
+wav_um = np.array([], dtype=float)
+flux_sdss = np.array([], dtype=float)
+ivar = np.array([], dtype=float)
+spec_label = None
 
 if spec_source == "sdss":
     matches = SDSS.query_region(
@@ -247,102 +268,102 @@ if spec_source == "sdss":
     )
 
     if matches is None or len(matches) == 0:
-        raise RuntimeError("No SDSS spectrum found within 5 arcsec.")
+        print("No SDSS spectrum found within 5 arcsec. Continuing without optical spectrum.")
+    else:
+        match_coords = SkyCoord(
+            np.array(matches["ra"], dtype=float) * u.deg,
+            np.array(matches["dec"], dtype=float) * u.deg,
+            frame="icrs"
+        )
+        sep = coord.separation(match_coords)
+        best_idx = np.argmin(sep)
+        best_match = matches[best_idx:best_idx + 1]
 
-    match_coords = SkyCoord(
-        np.array(matches["ra"], dtype=float) * u.deg,
-        np.array(matches["dec"], dtype=float) * u.deg,
-        frame="icrs"
-    )
-    sep = coord.separation(match_coords)
-    best_idx = np.argmin(sep)
-    best_match = matches[best_idx:best_idx + 1]
+        print(f"Closest SDSS match separation: {sep[best_idx].arcsec:.3f} arcsec")
 
-    print(f"Closest SDSS match separation: {sep[best_idx].arcsec:.3f} arcsec")
+        spec_list = SDSS.get_spectra(matches=best_match, data_release=17)
+        if spec_list is None or len(spec_list) == 0:
+            print("SDSS match found, but spectrum download failed. Continuing without optical spectrum.")
+        else:
+            hdul = spec_list[0]
+            hdul.writeto(f"{src_name}_SDSS_spectrum.fits", overwrite=True)
+            data = hdul[1].data
 
-    spec_list = SDSS.get_spectra(matches=best_match, data_release=17)
-    if spec_list is None or len(spec_list) == 0:
-        raise RuntimeError("SDSS match found, but spectrum download failed.")
-
-    hdul = spec_list[0]
-    hdul.writeto(f"{src_name}_SDSS_spectrum.fits", overwrite=True)
-    data = hdul[1].data
-
-    loglam = np.array(data["loglam"], dtype=float)  # log10(lambda / Angstrom)
-    flux_sdss = np.array(data["flux"], dtype=float)  # 1e-17 erg/s/cm^2/Angstrom
-    ivar = np.array(data["ivar"], dtype=float)  # inverse variance
-    wav_A = 10**loglam
-    wav_um = wav_A * 1e-4
-    spec_label = "SDSS spectrum"
+            loglam = np.array(data["loglam"], dtype=float)  # log10(lambda / Angstrom)
+            flux_sdss = np.array(data["flux"], dtype=float)  # 1e-17 erg/s/cm^2/Angstrom
+            ivar = np.array(data["ivar"], dtype=float)  # inverse variance
+            wav_A = 10**loglam
+            wav_um = wav_A * 1e-4
+            spec_label = "SDSS spectrum"
+            has_spectrum = True
 
 elif spec_source == "desi":
     try:
         from sparcl.client import SparclClient
     except ImportError as exc:
-        raise ImportError(
-            "DESI mode requires sparclclient. Install with: pip install sparclclient"
-        ) from exc
-
-    client = SparclClient()
-    search_radius_arcsec = 5.0
-    radius_deg = search_radius_arcsec / 3600.0
-    constraints = {
-        "ra": [coord.ra.deg - radius_deg, coord.ra.deg + radius_deg],
-        "dec": [coord.dec.deg - radius_deg, coord.dec.deg + radius_deg],
-    }
-    outfields = ["sparcl_id", "ra", "dec", "specprimary", "_dr"]
-    found = client.find(outfields=outfields, constraints=constraints, limit=200)
-    if found is None or len(found.records) == 0:
-        raise RuntimeError("No DESI spectrum candidate found in SPARCL search window.")
-
-    candidates = []
-    for rec in found.records:
-        if not (hasattr(rec, "ra") and hasattr(rec, "dec")):
-            continue
-        rcoord = SkyCoord(float(rec.ra) * u.deg, float(rec.dec) * u.deg, frame="icrs")
-        rsep = coord.separation(rcoord).arcsec
-        if np.isfinite(rsep) and rsep <= search_radius_arcsec:
-            dataset_tag = str(getattr(rec, "_dr", ""))
-            if "desi" not in dataset_tag.lower():
-                continue
-            is_primary = bool(getattr(rec, "specprimary", False))
-            candidates.append((not is_primary, rsep, rec))
-
-    if len(candidates) == 0:
-        raise RuntimeError("DESI candidates found, but none are within 5 arcsec.")
-
-    candidates.sort(key=lambda x: (x[0], x[1]))
-    _, best_sep, best_rec = candidates[0]
-    print(f"Closest DESI match separation: {best_sep:.3f} arcsec")
-
-    include_fields = ["wavelength", "flux", "ivar", "specid", "targetid", "ra", "dec"]
-    retrieve_kwargs = {"include": include_fields, "limit": 1}
-    if hasattr(best_rec, "_dr") and best_rec._dr is not None:
-        retrieve_kwargs["dataset_list"] = [best_rec._dr]
-    retrieved = client.retrieve([best_rec.sparcl_id], **retrieve_kwargs)
-    if retrieved is None or len(retrieved.records) == 0:
-        raise RuntimeError("DESI match found, but spectrum retrieval failed.")
-
-    record = retrieved.records[0]
-    wav_A = np.array(record.wavelength, dtype=float)
-    flux_sdss = np.array(record.flux, dtype=float)  # same f_lambda convention as SDSS
-    if hasattr(record, "ivar") and record.ivar is not None:
-        ivar = np.array(record.ivar, dtype=float)
+        print("DESI mode requires sparclclient (pip install sparclclient). Continuing without optical spectrum.")
     else:
-        ivar = np.zeros_like(flux_sdss)
+        client = SparclClient()
+        search_radius_arcsec = 5.0
+        radius_deg = search_radius_arcsec / 3600.0
+        constraints = {
+            "ra": [coord.ra.deg - radius_deg, coord.ra.deg + radius_deg],
+            "dec": [coord.dec.deg - radius_deg, coord.dec.deg + radius_deg],
+        }
+        outfields = ["sparcl_id", "ra", "dec", "specprimary", "_dr"]
+        found = client.find(outfields=outfields, constraints=constraints, limit=200)
+        if found is None or len(found.records) == 0:
+            print("No DESI spectrum candidate found in SPARCL search window. Continuing without optical spectrum.")
+        else:
+            candidates = []
+            for rec in found.records:
+                if not (hasattr(rec, "ra") and hasattr(rec, "dec")):
+                    continue
+                rcoord = SkyCoord(float(rec.ra) * u.deg, float(rec.dec) * u.deg, frame="icrs")
+                rsep = coord.separation(rcoord).arcsec
+                if np.isfinite(rsep) and rsep <= search_radius_arcsec:
+                    dataset_tag = str(getattr(rec, "_dr", ""))
+                    if "desi" not in dataset_tag.lower():
+                        continue
+                    is_primary = bool(getattr(rec, "specprimary", False))
+                    candidates.append((not is_primary, rsep, rec))
 
-    cols = [
-        fits.Column(name="WAVELENGTH", array=wav_A, format="D", unit="Angstrom"),
-        fits.Column(name="FLUX", array=flux_sdss, format="D", unit="1e-17 erg s-1 cm-2 Angstrom-1"),
-        fits.Column(name="IVAR", array=ivar, format="D"),
-    ]
-    hdu = fits.BinTableHDU.from_columns(cols)
-    hdu.header["SURVEY"] = "DESI"
-    hdu.header["SOURCE"] = src_name
-    fits.HDUList([fits.PrimaryHDU(), hdu]).writeto(f"{src_name}_DESI_spectrum.fits", overwrite=True)
+            if len(candidates) == 0:
+                print("DESI candidates found, but none are within 5 arcsec. Continuing without optical spectrum.")
+            else:
+                candidates.sort(key=lambda x: (x[0], x[1]))
+                _, best_sep, best_rec = candidates[0]
+                print(f"Closest DESI match separation: {best_sep:.3f} arcsec")
 
-    wav_um = wav_A * 1e-4
-    spec_label = "DESI spectrum"
+                include_fields = ["wavelength", "flux", "ivar", "specid", "targetid", "ra", "dec"]
+                retrieve_kwargs = {"include": include_fields, "limit": 1}
+                if hasattr(best_rec, "_dr") and best_rec._dr is not None:
+                    retrieve_kwargs["dataset_list"] = [best_rec._dr]
+                retrieved = client.retrieve([best_rec.sparcl_id], **retrieve_kwargs)
+                if retrieved is None or len(retrieved.records) == 0:
+                    print("DESI match found, but spectrum retrieval failed. Continuing without optical spectrum.")
+                else:
+                    record = retrieved.records[0]
+                    wav_A = np.array(record.wavelength, dtype=float)
+                    flux_sdss = np.array(record.flux, dtype=float)  # same f_lambda convention as SDSS
+                    if hasattr(record, "ivar") and record.ivar is not None:
+                        ivar = np.array(record.ivar, dtype=float)
+                    else:
+                        ivar = np.zeros_like(flux_sdss)
+
+                    cols = [
+                        fits.Column(name="WAVELENGTH", array=wav_A, format="D", unit="Angstrom"),
+                        fits.Column(name="FLUX", array=flux_sdss, format="D", unit="1e-17 erg s-1 cm-2 Angstrom-1"),
+                        fits.Column(name="IVAR", array=ivar, format="D"),
+                    ]
+                    hdu = fits.BinTableHDU.from_columns(cols)
+                    hdu.header["SURVEY"] = "DESI"
+                    hdu.header["SOURCE"] = src_name
+                    fits.HDUList([fits.PrimaryHDU(), hdu]).writeto(f"{src_name}_DESI_spectrum.fits", overwrite=True)
+
+                    wav_um = wav_A * 1e-4
+                    spec_label = "DESI spectrum"
+                    has_spectrum = True
 else:
     raise ValueError(f"Unsupported spec_source='{spec_source}'. Use 'sdss' or 'desi'.")
 
@@ -357,44 +378,49 @@ else:
 # ------------------------------------------------------------
 c_A_per_s = 2.99792458e18
 
-f_lambda = flux_sdss * 1e-17
-flux_sdss_uJy = (f_lambda * wav_A**2 / c_A_per_s) / 1e-29
+if has_spectrum:
+    f_lambda = flux_sdss * 1e-17
+    flux_sdss_uJy = (f_lambda * wav_A**2 / c_A_per_s) / 1e-29
 
-# error from inverse variance
-flux_sdss_err = np.full_like(flux_sdss, np.nan, dtype=float)
-good_ivar = ivar > 0
-flux_sdss_err[good_ivar] = 1.0 / np.sqrt(ivar[good_ivar])
+    # error from inverse variance
+    flux_sdss_err = np.full_like(flux_sdss, np.nan, dtype=float)
+    good_ivar = ivar > 0
+    flux_sdss_err[good_ivar] = 1.0 / np.sqrt(ivar[good_ivar])
 
-f_lambda_err = flux_sdss_err * 1e-17
-flux_sdss_err_uJy = (f_lambda_err * wav_A**2 / c_A_per_s) / 1e-29
+    f_lambda_err = flux_sdss_err * 1e-17
+    flux_sdss_err_uJy = (f_lambda_err * wav_A**2 / c_A_per_s) / 1e-29
 
-good_sdss = np.isfinite(wav_um) & np.isfinite(flux_sdss_uJy)
+    good_sdss = np.isfinite(wav_um) & np.isfinite(flux_sdss_uJy)
+else:
+    flux_sdss_uJy = np.array([], dtype=float)
+    flux_sdss_err_uJy = np.array([], dtype=float)
+    good_sdss = np.array([], dtype=bool)
 
 # ------------------------------------------------------------
 # Convert f_nu (uJy) to nu*L_nu (erg/s)
 # ------------------------------------------------------------
 d_l = Planck18.luminosity_distance(z).to(u.cm)
 nu_ipac = (c / (wav_ipac * u.um)).to(u.Hz)
-nu_sdss = (c / (wav_um * u.um)).to(u.Hz)
+nu_sdss = (c / (wav_um * u.um)).to(u.Hz) if has_spectrum else np.array([], dtype=float) * u.Hz
 
 fnu_ipac = flux_ipac * u.uJy
-fnu_sdss = flux_sdss_uJy * u.uJy
+fnu_sdss = flux_sdss_uJy * u.uJy if has_spectrum else np.array([], dtype=float) * u.uJy
 fnu_wise = wise_flux_uJy * u.uJy
 fnu_sdss_phot = sdss_phot_flux_uJy * u.uJy
 err_fnu_ipac = err_ipac * u.uJy
-err_fnu_sdss = flux_sdss_err_uJy * u.uJy
+err_fnu_sdss = flux_sdss_err_uJy * u.uJy if has_spectrum else np.array([], dtype=float) * u.uJy
 err_fnu_wise = wise_flux_err_uJy * u.uJy
 err_fnu_sdss_phot = sdss_phot_err_uJy * u.uJy
 
 # For observed flux density f_nu: nu*L_nu = 4*pi*d_L^2*(nu_obs*f_nu_obs)
 nuLnu_ipac = (4 * np.pi * d_l**2 * nu_ipac * fnu_ipac).to(u.erg / u.s)
-nuLnu_sdss = (4 * np.pi * d_l**2 * nu_sdss * fnu_sdss).to(u.erg / u.s)
+nuLnu_sdss = (4 * np.pi * d_l**2 * nu_sdss * fnu_sdss).to(u.erg / u.s) if has_spectrum else np.array([], dtype=float) * (u.erg / u.s)
 nu_wise = (c / (wise_wav_um * u.um)).to(u.Hz)
 nuLnu_wise = (4 * np.pi * d_l**2 * nu_wise * fnu_wise).to(u.erg / u.s)
 nu_sdss_phot = (c / (sdss_phot_wav_used_um * u.um)).to(u.Hz)
 nuLnu_sdss_phot = (4 * np.pi * d_l**2 * nu_sdss_phot * fnu_sdss_phot).to(u.erg / u.s)
 err_nuLnu_ipac = (4 * np.pi * d_l**2 * nu_ipac * err_fnu_ipac).to(u.erg / u.s)
-err_nuLnu_sdss = (4 * np.pi * d_l**2 * nu_sdss * err_fnu_sdss).to(u.erg / u.s)
+err_nuLnu_sdss = (4 * np.pi * d_l**2 * nu_sdss * err_fnu_sdss).to(u.erg / u.s) if has_spectrum else np.array([], dtype=float) * (u.erg / u.s)
 err_nuLnu_wise = (4 * np.pi * d_l**2 * nu_wise * err_fnu_wise).to(u.erg / u.s)
 err_nuLnu_sdss_phot = (4 * np.pi * d_l**2 * nu_sdss_phot * err_fnu_sdss_phot).to(u.erg / u.s)
 
@@ -463,12 +489,13 @@ print(f"Saved combined SED points: {combined_csv}")
 plt.figure(figsize=(10, 6))
 
 # Optical spectrum
-plt.plot(
-    wav_um[good_sdss],
-    flux_sdss_uJy[good_sdss],
-    linewidth=1.0,
-    label=spec_label
-)
+if has_spectrum:
+    plt.plot(
+        wav_um[good_sdss],
+        flux_sdss_uJy[good_sdss],
+        linewidth=1.0,
+        label=spec_label
+    )
 
 # IPAC points with error bars
 plt.errorbar(
@@ -497,7 +524,7 @@ if wise_wav_um.size > 0:
     for i, band in enumerate(wise_bands):
         plt.text(wise_wav_um[i] * 1.03, wise_flux_uJy[i], band, color="tab:red", fontsize=9)
 
-if sdss_phot_wav_used_um.size > 0:
+if has_spectrum and sdss_phot_wav_used_um.size > 0:
     plt.errorbar(
         sdss_phot_wav_used_um,
         sdss_phot_flux_uJy,
@@ -515,7 +542,10 @@ if sdss_phot_wav_used_um.size > 0:
 plt.xlabel("Wavelength (micron)")
 plt.ylabel("Flux (microJy)")
 plt.xscale('log')
-plt.title(f"{src_name}: {spec_source.upper()} + IPAC Spectrum")
+if has_spectrum:
+    plt.title(f"{src_name}: {spec_source.upper()} + SPHEREx")
+else:
+    plt.title(f"{src_name}: SPHEREx + WISE photometry")
 plt.grid(True, alpha=0.3)
 plt.legend()
 plt.tight_layout()
@@ -526,12 +556,13 @@ plt.tight_layout()
 plt.figure(figsize=(10, 6))
 
 # Optical spectrum
-plt.plot(
-    wav_um[good_sdss],
-    nuLnu_sdss.value[good_sdss],
-    linewidth=1.0,
-    label=spec_label
-)
+if has_spectrum:
+    plt.plot(
+        wav_um[good_sdss],
+        nuLnu_sdss.value[good_sdss],
+        linewidth=1.0,
+        label=spec_label
+    )
 
 # IPAC points with error bars
 plt.errorbar(
@@ -560,7 +591,7 @@ if wise_wav_um.size > 0:
     for i, band in enumerate(wise_bands):
         plt.text(wise_wav_um[i] * 1.03, nuLnu_wise.value[i], band, color="tab:red", fontsize=9)
 
-if sdss_phot_wav_used_um.size > 0:
+if has_spectrum and sdss_phot_wav_used_um.size > 0:
     plt.errorbar(
         sdss_phot_wav_used_um,
         nuLnu_sdss_phot.value,
@@ -579,7 +610,10 @@ plt.xlabel("Wavelength (micron)")
 plt.ylabel(r"$\nu L_\nu$ (erg s$^{-1}$)")
 plt.xscale('log')
 plt.yscale('log')
-plt.title(f"{src_name}: {spec_source.upper()} + IPAC, z={z} ($\\nu L_\\nu$)")
+if has_spectrum:
+    plt.title(f"{src_name}: {spec_source.upper()} + SPHEREx, z={z} ($\\nu L_\\nu$)")
+else:
+    plt.title(f"{src_name}: SPHEREx + WISE photometry, z={z} ($\\nu L_\\nu$)")
 plt.grid(True, alpha=0.3)
 plt.legend()
 plt.tight_layout()
@@ -598,12 +632,13 @@ fig, (ax, ax_t) = plt.subplots(
 )
 
 # Optical spectrum
-ax.plot(
-    wav_um_rest_sdss[good_sdss],
-    nuLnu_sdss.value[good_sdss],
-    linewidth=1.0,
-    label=spec_label
-)
+if has_spectrum:
+    ax.plot(
+        wav_um_rest_sdss[good_sdss],
+        nuLnu_sdss.value[good_sdss],
+        linewidth=1.0,
+        label=spec_label
+    )
 
 # IPAC points with error bars
 ax.errorbar(
@@ -630,7 +665,7 @@ if wise_wav_um.size > 0:
         label="WISE (AllWISE)"
     )
 
-if sdss_phot_wav_used_um.size > 0:
+if has_spectrum and sdss_phot_wav_used_um.size > 0:
     ax.errorbar(
         wav_um_rest_sdss_phot,
         nuLnu_sdss_phot.value,
@@ -657,8 +692,19 @@ emission_lines = [
     ("Pa$\\alpha$", 1.875),
 ]
 
-xmin_candidates = [wav_um_rest_sdss[good_sdss], wav_um_rest_ipac, wav_um_rest_wise, wav_um_rest_sdss_phot]
-xmax_candidates = [wav_um_rest_sdss[good_sdss], wav_um_rest_ipac, wav_um_rest_wise, wav_um_rest_sdss_phot]
+if z < 0.5:
+    emission_lines.extend([
+        ("3.3 $\\mu$m aromatic", 3.3),
+        ("3.4 $\\mu$m aliphatic", 3.4),
+    ])
+
+xmin_candidates = [wav_um_rest_ipac, wav_um_rest_wise]
+xmax_candidates = [wav_um_rest_ipac, wav_um_rest_wise]
+if has_spectrum:
+    xmin_candidates.append(wav_um_rest_sdss[good_sdss])
+    xmax_candidates.append(wav_um_rest_sdss[good_sdss])
+    xmin_candidates.append(wav_um_rest_sdss_phot)
+    xmax_candidates.append(wav_um_rest_sdss_phot)
 xmin = np.nanmin(np.concatenate([arr for arr in xmin_candidates if arr.size > 0]))
 xmax = np.nanmax(np.concatenate([arr for arr in xmax_candidates if arr.size > 0]))
 ymin, ymax = ax.get_ylim()
@@ -721,7 +767,10 @@ ax.set_xscale('log')
 # ax.set_yscale('log')
 ax_t.set_xscale('log')
 ax_t.set_xlabel("Rest-frame Wavelength (micron)")
-ax.set_title(f"{src_name}: Rest-frame, z={z} ($\\nu L_\\nu$)")
+if has_spectrum:
+    ax.set_title(f"{src_name}: Rest-frame, z={z} ($\\nu L_\\nu$)")
+else:
+    ax.set_title(f"{src_name}: Rest-frame SPHEREx + WISE photometry, z={z} ($\\nu L_\\nu$)")
 ax.grid(True, alpha=0.3)
 ax_t.grid(True, alpha=0.3)
 
