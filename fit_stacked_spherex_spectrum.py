@@ -13,6 +13,7 @@ from scipy.optimize import least_squares
 
 
 C_KMS = 299792.458
+CALZETTI_RV = 4.05
 CASE_B_HYDROGEN_RATIOS = {
     "Hg_to_Hb": 1.0 / 2.13,
     "Hb_to_Hb": 1.0,
@@ -58,29 +59,29 @@ class BroadHydrogenLine:
 NARROW_LINES = [
     # NarrowLine("MgII_2798", 0.2798, "amp_mgii"),
     NarrowLine("OII_3727", 0.3727, "amp_oii3727"),
-    NarrowLine("Hg_narrow", 0.434047, "amp_hb_n", ratio_to="amp_hb_n", ratio_param="ratio_hg_hb_n"),
+    NarrowLine("Hg_narrow", 0.434047, "amp_hb_n", ratio_to="amp_hb_n", ratio_value=CASE_B_HYDROGEN_RATIOS["Hg_to_Hb"]),
     NarrowLine("Hb_narrow", 0.486133, "amp_hb_n"),
     NarrowLine("OIII_4959", 0.495891, "amp_oiii5007", ratio_to="amp_oiii5007", ratio_value=1.0 / 2.98),
     NarrowLine("OIII_5007", 0.500684, "amp_oiii5007"),
     NarrowLine("OI_6300", 0.630030, "amp_oi6300"),
     NarrowLine("NII_6548", 0.654805, "amp_nii6583", ratio_to="amp_nii6583", ratio_value=1.0 / 2.96),
-    NarrowLine("Ha_narrow", 0.656281, "amp_hb_n", ratio_to="amp_hb_n", ratio_param="ratio_ha_hb_n"),
+    NarrowLine("Ha_narrow", 0.656281, "amp_hb_n", ratio_to="amp_hb_n", ratio_value=CASE_B_HYDROGEN_RATIOS["Ha_to_Hb"]),
     NarrowLine("NII_6583", 0.658345, "amp_nii6583"),
     NarrowLine("SII_6716", 0.671644, "amp_sii6716"),
     NarrowLine("SII_6731", 0.673082, "amp_sii6731"),
     # NarrowLine("HeI_10830", 1.0830, "amp_hei10830"),
-    NarrowLine("PaG_narrow", 1.0938, "amp_hb_n", ratio_to="amp_hb_n", ratio_param="ratio_pag_hb_n"),
-    NarrowLine("PaB_narrow", 1.2818, "amp_hb_n", ratio_to="amp_hb_n", ratio_param="ratio_pab_hb_n"),
+    NarrowLine("PaG_narrow", 1.0938, "amp_hb_n", ratio_to="amp_hb_n", ratio_value=CASE_B_HYDROGEN_RATIOS["PaG_to_Hb"]),
+    NarrowLine("PaB_narrow", 1.2818, "amp_hb_n", ratio_to="amp_hb_n", ratio_value=CASE_B_HYDROGEN_RATIOS["PaB_to_Hb"]),
 ]
 
 HYDROGEN_BROAD_LINES = [
 #    BroadHydrogenLine("Ly_alpha_broad", 0.121567, "amp_lya_b"),
-    BroadHydrogenLine("Hg_broad", 0.434047, "amp_hb_b", ratio_to="amp_hb_b", ratio_param="ratio_hg_hb_b"),
+    BroadHydrogenLine("Hg_broad", 0.434047, "amp_hb_b", ratio_to="amp_hb_b", ratio_value=CASE_B_HYDROGEN_RATIOS["Hg_to_Hb"]),
     BroadHydrogenLine("Hb_broad", 0.486133, "amp_hb_b"),
-    BroadHydrogenLine("Ha_broad", 0.656281, "amp_hb_b", ratio_to="amp_hb_b", ratio_param="ratio_ha_hb_b"),
+    BroadHydrogenLine("Ha_broad", 0.656281, "amp_hb_b", ratio_to="amp_hb_b", ratio_value=CASE_B_HYDROGEN_RATIOS["Ha_to_Hb"]),
     BroadHydrogenLine("HeI_10830_broad", 1.0830, "amp_hei10830_b"),
-    BroadHydrogenLine("PaG_broad", 1.0938, "amp_hb_b", ratio_to="amp_hb_b", ratio_param="ratio_pag_hb_b"),
-    BroadHydrogenLine("PaB_broad", 1.2818, "amp_hb_b", ratio_to="amp_hb_b", ratio_param="ratio_pab_hb_b"),
+    BroadHydrogenLine("PaG_broad", 1.0938, "amp_hb_b", ratio_to="amp_hb_b", ratio_value=CASE_B_HYDROGEN_RATIOS["PaG_to_Hb"]),
+    BroadHydrogenLine("PaB_broad", 1.2818, "amp_hb_b", ratio_to="amp_hb_b", ratio_value=CASE_B_HYDROGEN_RATIOS["PaB_to_Hb"]),
 ]
 
 BASE_PARAMETER_SPECS = [
@@ -105,10 +106,7 @@ AMP_PARAMETER_SPECS = [
     ("amp_mgii", 0.05, 0.0, np.inf),
     ("amp_oii3727", 0.03, 0.0, np.inf),
     ("amp_hb_n", 0.04, 0.0, np.inf),
-    ("ratio_hg_hb_n", CASE_B_HYDROGEN_RATIOS["Hg_to_Hb"], 0.0, CASE_B_HYDROGEN_RATIOS["Hg_to_Hb"]),
-    ("ratio_ha_hb_n", CASE_B_HYDROGEN_RATIOS["Ha_to_Hb"], CASE_B_HYDROGEN_RATIOS["Ha_to_Hb"], np.inf),
-    ("ratio_pag_hb_n", CASE_B_HYDROGEN_RATIOS["PaG_to_Hb"], CASE_B_HYDROGEN_RATIOS["PaG_to_Hb"], np.inf),
-    ("ratio_pab_hb_n", CASE_B_HYDROGEN_RATIOS["PaB_to_Hb"], CASE_B_HYDROGEN_RATIOS["PaB_to_Hb"], np.inf),
+    ("ebv_n", 0.1, 0.0, 1.0),
     ("amp_oiii5007", 0.08, 0.0, np.inf),
     ("amp_oi6300", 0.02, 0.0, np.inf),
     ("amp_nii6583", 0.04, 0.0, np.inf),
@@ -117,10 +115,7 @@ AMP_PARAMETER_SPECS = [
     # ("amp_hei10830", 0.03, 0.0, np.inf),
     # ("amp_lya_b", 0.15, 0.0, np.inf),
     ("amp_hb_b", 0.08, 0.0, np.inf),
-    ("ratio_hg_hb_b", CASE_B_HYDROGEN_RATIOS["Hg_to_Hb"], 0.0, CASE_B_HYDROGEN_RATIOS["Hg_to_Hb"]),
-    ("ratio_ha_hb_b", CASE_B_HYDROGEN_RATIOS["Ha_to_Hb"], CASE_B_HYDROGEN_RATIOS["Ha_to_Hb"], np.inf),
-    ("ratio_pag_hb_b", CASE_B_HYDROGEN_RATIOS["PaG_to_Hb"], CASE_B_HYDROGEN_RATIOS["PaG_to_Hb"], np.inf),
-    ("ratio_pab_hb_b", CASE_B_HYDROGEN_RATIOS["PaB_to_Hb"], CASE_B_HYDROGEN_RATIOS["PaB_to_Hb"], np.inf),
+    ("ebv_b", 0.2, 0.0, 1.0),
     ("amp_hei10830_b", 0.05, 0.0, np.inf),
 ]
 
@@ -226,6 +221,29 @@ def gaussian_profile(
     return amplitude * np.exp(-0.5 * ((wave_um - shifted_center) / sigma_um) ** 2)
 
 
+def calzetti_k_lambda(wavelength_um: float) -> float:
+    lam = float(wavelength_um)
+    if 0.12 <= lam < 0.63:
+        return 2.659 * (-2.156 + 1.509 / lam - 0.198 / lam**2 + 0.011 / lam**3) + CALZETTI_RV
+    if 0.63 <= lam <= 2.2:
+        return 2.659 * (-1.857 + 1.040 / lam) + CALZETTI_RV
+    raise ValueError(f"Calzetti law not defined at wavelength {lam} um")
+
+
+HBETA_REST_UM = 0.486133
+
+
+def hydrogen_case_b_amplitude(
+    anchor_amplitude: float,
+    intrinsic_ratio: float,
+    line_center_um: float,
+    ebv: float,
+) -> float:
+    delta_k = calzetti_k_lambda(line_center_um) - calzetti_k_lambda(HBETA_REST_UM)
+    attenuation_factor = np.power(10.0, -0.4 * ebv * delta_k)
+    return anchor_amplitude * intrinsic_ratio * attenuation_factor
+
+
 def build_iron_template_component(
     wave_um: np.ndarray,
     template_wave_um: np.ndarray,
@@ -280,10 +298,13 @@ def build_model_components(
     broad_by_line: dict[str, np.ndarray] = {}
 
     for line in NARROW_LINES:
-        if line.ratio_to is not None and line.ratio_param is not None:
-            amplitude = p[line.ratio_to] * p[line.ratio_param]
-        elif line.ratio_to is not None and line.ratio_value is not None:
-            amplitude = p[line.ratio_to] * line.ratio_value
+        if line.ratio_to is not None and line.ratio_value is not None:
+            amplitude = hydrogen_case_b_amplitude(
+                anchor_amplitude=p[line.ratio_to],
+                intrinsic_ratio=line.ratio_value,
+                line_center_um=line.center_um,
+                ebv=p["ebv_n"],
+            )
         else:
             amplitude = p[line.amplitude_key]
         profile = gaussian_profile(wave_um, line.center_um, p["v_narrow_kms"], p["fwhm_narrow_kms"], amplitude)
@@ -291,10 +312,13 @@ def build_model_components(
         narrow_total += profile
 
     for line in HYDROGEN_BROAD_LINES:
-        if line.ratio_to is not None and line.ratio_param is not None:
-            amplitude = p[line.ratio_to] * p[line.ratio_param]
-        elif line.ratio_to is not None and line.ratio_value is not None:
-            amplitude = p[line.ratio_to] * line.ratio_value
+        if line.ratio_to is not None and line.ratio_value is not None:
+            amplitude = hydrogen_case_b_amplitude(
+                anchor_amplitude=p[line.ratio_to],
+                intrinsic_ratio=line.ratio_value,
+                line_center_um=line.center_um,
+                ebv=p["ebv_b"],
+            )
         else:
             amplitude = p[line.amplitude_key]
         profile = gaussian_profile(wave_um, line.center_um, p["v_broad_kms"], p["fwhm_broad_kms"], amplitude)
@@ -725,18 +749,19 @@ def save_json_summary(
         "hydrogen_ratio_parameterization": {
             "anchor_line_narrow": "Hbeta",
             "anchor_line_broad": "Hbeta",
-            "free_ratios": [
-                "Hg/Hb",
-                "Ha/Hb",
-                "PaG/Hb",
-                "PaB/Hb",
+            "reddening_law": "Calzetti",
+            "free_parameters": [
+                "amp_hb_n",
+                "ebv_n",
+                "amp_hb_b",
+                "ebv_b",
             ],
         },
-        "case_b_ratio_bounds": {
-            "Hg/Hb": {"max": CASE_B_HYDROGEN_RATIOS["Hg_to_Hb"]},
-            "Ha/Hb": {"min": CASE_B_HYDROGEN_RATIOS["Ha_to_Hb"]},
-            "PaG/Hb": {"min": CASE_B_HYDROGEN_RATIOS["PaG_to_Hb"]},
-            "PaB/Hb": {"min": CASE_B_HYDROGEN_RATIOS["PaB_to_Hb"]},
+        "case_b_intrinsic_hydrogen_ratios": {
+            "Hg/Hb": CASE_B_HYDROGEN_RATIOS["Hg_to_Hb"],
+            "Ha/Hb": CASE_B_HYDROGEN_RATIOS["Ha_to_Hb"],
+            "PaG/Hb": CASE_B_HYDROGEN_RATIOS["PaG_to_Hb"],
+            "PaB/Hb": CASE_B_HYDROGEN_RATIOS["PaB_to_Hb"],
         },
     }
     output_path.write_text(json.dumps(summary, indent=2))
@@ -763,11 +788,12 @@ def save_model_fits(
     primary.header["DOF"] = (int(dof), "Degrees of freedom")
     primary.header["OIIIRAT"] = (2.98, "[OIII]5007/[OIII]4959 ratio")
     primary.header["NIIRAT"] = (2.96, "[NII]6583/[NII]6548 ratio")
-    primary.header["HBANCHOR"] = ("TRUE", "Hydrogen lines use Hbeta-referenced ratio parameters")
-    primary.header["HGRATMAX"] = (CASE_B_HYDROGEN_RATIOS["Hg_to_Hb"], "Maximum allowed Hgamma/Hbeta ratio")
-    primary.header["HARATMIN"] = (CASE_B_HYDROGEN_RATIOS["Ha_to_Hb"], "Minimum allowed Halpha/Hbeta ratio")
-    primary.header["PAGRATMN"] = (CASE_B_HYDROGEN_RATIOS["PaG_to_Hb"], "Minimum allowed Pagamma/Hbeta ratio")
-    primary.header["PABRATMN"] = (CASE_B_HYDROGEN_RATIOS["PaB_to_Hb"], "Minimum allowed Pabeta/Hbeta ratio")
+    primary.header["HBANCHOR"] = ("TRUE", "Hydrogen lines anchored to Hbeta")
+    primary.header["REDDLAW"] = ("CALZETTI", "Hydrogen attenuation law")
+    primary.header["HGRAT"] = (CASE_B_HYDROGEN_RATIOS["Hg_to_Hb"], "Intrinsic case-B Hgamma/Hbeta ratio")
+    primary.header["HARAT"] = (CASE_B_HYDROGEN_RATIOS["Ha_to_Hb"], "Intrinsic case-B Halpha/Hbeta ratio")
+    primary.header["PAGRAT"] = (CASE_B_HYDROGEN_RATIOS["PaG_to_Hb"], "Intrinsic case-B Pagamma/Hbeta ratio")
+    primary.header["PABRAT"] = (CASE_B_HYDROGEN_RATIOS["PaB_to_Hb"], "Intrinsic case-B Pabeta/Hbeta ratio")
     if iron_template_path is not None:
         primary.header["FETMPL"] = (str(iron_template_path)[:68], "Iron template file")
     for idx, name in enumerate(parameter_names[:90], start=1):
@@ -861,7 +887,13 @@ def save_component_plot(
     narrow_by_line = model["narrow_by_line"]
     broad_by_line = model["broad_by_line"]
 
-    fig, ax = plt.subplots(figsize=(12, 7))
+    fig, (ax, ax_res) = plt.subplots(
+        2,
+        1,
+        figsize=(12, 8),
+        sharex=True,
+        gridspec_kw={"height_ratios": [3.2, 1.1], "hspace": 0.06},
+    )
     ax.plot(wave_um, line_data, color="black", lw=1.2, label="Continuum-subtracted stack")
     ax.fill_between(wave_um, line_data - line_err, line_data + line_err, color="gray", alpha=0.15, linewidth=0)
     ax.plot(wave_um, line_model_total, color="tab:red", lw=1.8, label="Total best-fit line model")
@@ -890,11 +922,26 @@ def save_component_plot(
         ax.axvline(wave_um[peak_idx], color=color, lw=0.8, ls="--", alpha=0.5)
 
     ax.axhline(0.0, color="gray", lw=0.8, ls="--")
-    ax.set_xlabel("Rest Wavelength (um)")
     ax.set_ylabel("Line Flux")
     ax.set_title("Gaussian Emission-Line Components")
     ax.grid(alpha=0.25)
     ax.legend(loc="center left", bbox_to_anchor=(1.02, 0.5), fontsize=8, frameon=False)
+
+    residual = line_data - line_model_total
+    ax_res.plot(wave_um, residual, color="black", lw=1.0)
+    ax_res.fill_between(
+        wave_um,
+        residual - line_err,
+        residual + line_err,
+        color="gray",
+        alpha=0.15,
+        linewidth=0,
+    )
+    ax_res.axhline(0.0, color="tab:red", lw=1.0, ls="--")
+    ax_res.set_xlabel("Rest Wavelength (um)")
+    ax_res.set_ylabel("Residual")
+    ax_res.grid(alpha=0.25)
+
     fig.tight_layout()
     fig.savefig(output_path, dpi=180, bbox_inches="tight")
     plt.close(fig)
